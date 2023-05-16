@@ -5,11 +5,12 @@ use std::env;
 use dotenv::dotenv;
 use once_cell::sync::OnceCell;
 use mongodb::{bson, bson::{Document, doc}, options::{ClientOptions}, sync::{Client, Database}};
-use serde::{Deserialize, Serialize};
+use deserr::{Deserr, deserialize, errors::JsonError};
+use serde_json::json;
 
 static MONGODB: OnceCell<Database> = OnceCell::new();
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Deserr)]
 struct User {
     username: String,
     password: String,
@@ -42,7 +43,7 @@ async fn hello() -> &'static str {
     };
     // TODO this should be another thread maybe
     for doc in cursor {
-        let userDoc = match doc {
+        let user_doc = match doc {
             Ok(user) => {
                 User {
                     username: user.get("username").unwrap().to_string(),
@@ -51,7 +52,7 @@ async fn hello() -> &'static str {
             }
             Err(_) => return "Finito"
         };
-        wtr.write_record(&[userDoc.username, userDoc.password]);
+        wtr.write_record(&[user_doc.username, user_doc.password]);
     };
     wtr.flush();
     // TODO this should return 200 ok
