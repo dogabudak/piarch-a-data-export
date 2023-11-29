@@ -7,6 +7,7 @@ use once_cell::sync::OnceCell;
 use mongodb::{bson, bson::{Document, doc}, options::{ClientOptions}, sync::{Client, Database}};
 use deserr::{Deserr, deserialize, errors::JsonError};
 use serde_json::json;
+use rocket::http::Status;
 
 static MONGODB: OnceCell<Database> = OnceCell::new();
 
@@ -28,18 +29,16 @@ pub fn initialize_database(connection_string: String) {
 }
 
 #[get("/")]
-async fn hello() -> &'static str {
+async fn hello() -> Status {
     let database = MONGODB.get().unwrap();
     let mut wtr = csv::WriterBuilder::new()
-        // TODO check the exported csv
         .delimiter(b'\t')
         .from_path("./output.csv").unwrap();
     wtr.write_record(&["username", "password"]);
     let collection = database.collection::<Document>("users");
     let cursor = match collection.find(None, None) {
         Ok(cursor) => cursor,
-        // TODO return empty cursor
-        Err(_) => return "Err"// return vec![],
+        Err(_) => return Status::NotAcceptable
     };
     // TODO this should be another thread maybe
     for doc in cursor {
@@ -50,13 +49,12 @@ async fn hello() -> &'static str {
                     password: user.get("password").unwrap().to_string(),
                 }
             }
-            Err(_) => return "Finito"
+            Err(_) => return Status::NotAcceptable
         };
         wtr.write_record(&[user_doc.username, user_doc.password]);
     };
     wtr.flush();
-    // TODO this should return 200 ok
-    "Hello world"
+    Status::Accepted
 }
 
 #[rocket::main]
